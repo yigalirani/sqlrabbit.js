@@ -1,0 +1,46 @@
+﻿<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html><head>
+ <meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
+ {{meta}}
+ <link rel="stylesheet" href="/media/sql.css" type="text/css" media="screen" >   
+   <script src="https://code.jquery.com/jquery-2.2.0.min.js"></script>
+    <script type='text/javascript' src='/media/script.js'></script>
+    
+<title>SQL Rabbit - {{title}}</title></head>
+<body>
+            <div class=connection>
+            <a href='/'><img src=/media/logo.png></a><b>host:</b> {{conn_p.host}}    <b>user</b>: {{conn_p.user}} {{logout_comment}}(<a href={{logout_href}} >logout</a>) 
+        </div><br>
+        <div class=navbar>{{{navbar}}}</div><br>
+        
+        <div class=about><table>
+                {{#about}}<tr><td class=about_title>About this view</td><td >{{.}}</td><tr>{{/about}}
+                {{#view_options}}<tr><td class=about_title>View Options</td><td >{{{.}}}</td><tr>{{/view_options}}
+                {{#query}}<tr><td class=about_title>Query</td><td ><span class=sql>{{.}}</span> 
+            (<a href={{{query_edit_href}}}>Edit</a>)</td><tr>{{/query}}
+
+{{#querytext}}<tr><td class=about_title>Query</td><td>                   
+                <div class=query>
+<form action='/' method="get" type="post">
+<textarea name="query" cols="60" rows="5">{{.}}</textarea><br>
+<input name="action" type="submit" value="query"/>
+{{#database}}<input name="database" type="hidden" value='{{.}}'/>{{/database}}
+</form>
+</div>    
+</td></tr>
+{{/querytext}}
+
+
+                {{#query_decoration}}<tr><td class=about_title>Query decoration</td><td ><span class=limit>{{.}}</span> </td><tr>{{/query_decoration}}                   
+            
+            </table>
+            {{#query_error}}<div class='error'>{{.}}</div>{{/query_error}}
+            {{#ok}}<div class='ok'>{{.}}</div>{{/ok}}
+        </div><br>
+        
+        
+        {{#nextprev}}<div class='nextprev'>{{{.}}}</div>{{/nextprev}}
+        <div class=query_result>{{{query_result}}}</div>
+        {{#nextprev}}<div class='nextprev'>{{{.}}}</div>{{/nextprev}}
+</body>
+</html>

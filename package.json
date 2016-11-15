@@ -1,0 +1,23 @@
+{
+  "name": "sqlrabbit.js",
+  "version": "1.0.0",
+  "description": "Easily browse mysql databases with node",
+  "main": "sqlrabbit.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yigalirani/sqlrabbit.js.git"
+  },
+  "keywords": [
+    "mysql",
+    "browse"
+  ],
+  "author": "Yigal Irani",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/yigalirani/sqlrabbit.js/issues"
+  },
+  "homepage": "https://github.com/yigalirani/sqlrabbit.js#readme"
+}
