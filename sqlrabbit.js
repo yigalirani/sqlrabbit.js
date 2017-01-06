@@ -76,7 +76,7 @@ function print_val_td(val) {
             return '<span class=ns>'+val+'</span>';
         return val
     }
-    return('<td>'+val+'</td>');
+    return('<td>'+decorate(val)+'</td>');
 }
 function print_next_prev(p,print_next) {
     var buf='';
@@ -95,7 +95,6 @@ function print_next_prev(p,print_next) {
 function print_table(p,results, fields,shown_columns, first_column_decorator) {
     if (results === true) {
         return {ok:'query completed succesfuly'}; //an exec query
-        return ans;
     }
     var ans = {};
     if (p.mem_sorting){
