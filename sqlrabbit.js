@@ -106,7 +106,7 @@ function print_table(p,results, fields,shown_columns, first_column_decorator) {
     var buf='';
     buf+="\n<table id=data><tr>";
     buf+=print_title("   ");
-    var shown_fields=_.filter(fields,(value, i)=>!shown_columns||i in shown_columns)
+    var shown_fields=_.filter(fields,(value, i)=>!shown_columns||_.includes(shown_columns,i))
 
     _.each(shown_fields,(field)=>
         buf+=print_sort_title(p,field.name));
