@@ -176,6 +176,7 @@ function query_and_send(p,view,show_columns,first_col_decorator){
                 send_error(error)
             else
                 send_results(results,fields)
+            connection.destroy()
         })
     }
     function show_login_dialog(error){
