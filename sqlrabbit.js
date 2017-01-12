@@ -9,7 +9,7 @@ const Cookies = require('cookies')
 
 
 const nav_copy_fields=['sort', 'database', 'query', 'table', 'action', 'dir']
-const max_rows=100
+const max_rows=10
 var count=0;
 
 var template = read_template('templates/template.htm');
@@ -68,14 +68,14 @@ function print_last_line(num_fields,no_rows_at_all) {
     ans+="</b></td>\n";
     return ans;
 }
+function decorate(val){
+    if (val === null)
+        return "<span class=ns>null</span>";
+    if (val === true || val === false)
+        return '<span class=ns>'+val+'</span>';
+    return val
+}
 function print_val_td(val) {
-    function decorate(val){
-        if (val === null)
-            return "<span class=ns>null</span>";
-        if (val === true || val === false)
-            return '<span class=ns>'+val+'</span>';
-        return val
-    }
     return('<td>'+decorate(val)+'</td>');
 }
 function print_next_prev(p,print_next) {
@@ -91,51 +91,55 @@ function print_next_prev(p,print_next) {
         buf+='Next';
     return buf;
 }
-
-function print_table(p,results, fields,shown_columns, first_column_decorator) {
-    if (results === true) {
-        return {ok:'query completed succesfuly'}; //an exec query
-    }
-    var ans = {};
-    if (p.mem_sorting){
-        if (p.sort)
-            results=_.sortBy(results,(x)=>x[p.sort]);
-        if (p.dir=='desc')
-            results=results.reverse()
-    }  
-    var buf='';
-    buf+="\n<table id=data><tr>";
-    buf+=print_title("   ");
-    var shown_fields=_.filter(fields,(value, i)=>!shown_columns||_.includes(shown_columns,i))
-
-    _.each(shown_fields,(field)=>
+function print_table_title(p,fields){
+    var buf='<tr>'+print_title("   ");
+    _.each(fields,(field)=>
         buf+=print_sort_title(p,field.name));
-    
     buf+="</tr>";
-    var print_next=true;
-    for (let i = p.start; i < p.start + max_rows; i++) {
-        var  row=null
-        if (i < results.length)
-            row = results[i];
-        buf+="<tr>\n";
-        if (!row) {
-            buf+=print_last_line(fields.length, i == 0);
-            print_next = false;
-            break;
-        }
-        buf += print_title(i + 1);//row num
-        _.each(shown_fields, (field,j)=> {
-            let val=row[field.name]
-            if (j == 0 && first_column_decorator)
-                val = first_column_decorator(p,val);
-            buf+=print_val_td(val);
-        })
-        buf+="</tr>";
+    return buf
+}
+function print_row(p,row,oridnal,fields,first_col){
+    var buf="<tr>\n";
+    buf += print_title(oridnal);//row num
+    _.each(fields, (field,j)=> {
+        let val=row[field.name]
+        if (j == 0 && first_col)
+            val = first_col(p,val);
+        buf+=print_val_td(val);
+    })
+    buf+="</tr>";
+    return buf
+}
+function make_result(p,body,fields,print_next,lastline=''){
+    var table="\n<table id=data>"+print_table_title(p,fields)+body+lastline+'</table>\n'
+    return {
+        nextprev:print_next_prev(p,print_next),
+        query_result:table
     }
-    buf+='</table>\n';
-    ans.nextprev=print_next_prev(p,print_next);
-    ans.query_result=buf;
-    return ans;
+} 
+function mem_print_table(p,view,results, fields) {
+    if (p.sort)
+        results=_.sortBy(results,(x)=>x[p.sort]);
+    if (p.dir=='desc')
+        results=results.reverse()
+    var buf=''
+    var shown_fields=_.filter(fields,(value, i)=>!view.show_cols||_.includes(view.show_cols,i))
+    for (var i = p.start; i < p.start + max_rows; i++) {
+        if (i >= results.length)
+            return make_result(p,buf,shown_fields,false,print_last_line(fields.length,i==0))
+        buf+=print_row(p,results[i],i+1,shown_fields,view.first_col)
+    }
+    return make_result(p,buf,shown_fields,true)
+}
+function result_print_table(p,view,results, fields) {
+    var shown_fields=fields
+    var buf=''
+    for (var i = 0; i < max_rows; i++) {
+        if (i >= results.length)
+            return make_result(p,buf,fields,false,print_last_line(fields.length,i==0))
+        buf+=print_row(p,results[i],i+1+p.start,shown_fields,view.first_col)
+    }
+    return make_result(p,buf,fields,true)
 }
 function decorate_database_name(p,val) {
     return p.a(val, {action:'database',database:val});
@@ -158,12 +162,13 @@ function execute(query){
     return doit;
 }
 
-function query_and_send(p,view,show_columns,first_col_decorator){
+function query_and_send(p,view){
     function send_results(results,fields){
-        if (!view.query_decoration)
-            p.mem_sorting=true
-        var table=print_table(p,results, fields,show_columns,first_col_decorator);
-        send(p,table,view);
+        if (results === true)
+            var view2= {ok:'query completed succesfuly'}; //an exec query
+        else
+            var view2=view.printer(p,view,results, fields);
+        send(p,view,view2);
     }
     function send_error(msg){
        send(p,{query_error:msg},view);
@@ -242,6 +247,8 @@ function SqlRabbit(){
             about:'The table below shows all the databases that are accessible in this server: Click on any database below to browse it',
             title:'show databases',
             query:'show databases',
+            printer:mem_print_table,
+            first_col:decorate_database_name,
         }
         
         query_and_send(p,view,null,decorate_database_name)
@@ -252,9 +259,12 @@ function SqlRabbit(){
             about: 'The table below shows all the available tables in the database '+database+', Click on any table below to browse it',
             title: 'show database '+database,
             query: 'show table status',
-            navbar: databases_link(p)+" / "+database
+            navbar: databases_link(p)+" / "+database,
+            printer:mem_print_table,
+            first_col:decorate_table_name,
+            show_cols:[0, 1, 4, 17]
         }
-        query_and_send(p,view,[0, 1, 4, 17],decorate_table_name)
+        query_and_send(p,view)
     }
     this.table=(p)=>{
         var view={
@@ -263,18 +273,20 @@ function SqlRabbit(){
             title: p.database+' / ' +p.table,
             query: 'select * from '+p.table,
             navbar:databases_link(p)+' / '+decorate_database_name(p,p.database)+' / '+p.table,
-            query_decoration: calc_query_decoration(p)
+            query_decoration: calc_query_decoration(p),
+            printer:mem_print_table
         }
-        query_and_send(p,view,null,null)
+        query_and_send(p,view)
     }
     this.table_schema=(p)=>{
         var view={
             about: 'The table below shows the table '+p.table+', you can select either schema or data view',
             view_options: print_switch(p,'', 'class=selected'),
             query:'describe '+p.table,
-            navbar:databases_link(p)+" / "+decorate_database_name(p,p.database)+' / '+p.table
+            navbar:databases_link(p)+" / "+decorate_database_name(p,p.database)+' / '+p.table,
+            printer:mem_print_table
         }
-        query_and_send(p,view,null,null)
+        query_and_send(p,view)
     }
     this.query=(p)=>{
         var view={
@@ -282,7 +294,8 @@ function SqlRabbit(){
             title:'User query',
             query:p.query,
             querytext:p.query,
-            navbar:databases_link(p)+(p.database?'/' + decorate_database_name(p,p.database):'')+' / query'
+            navbar:databases_link(p)+(p.database?'/' + decorate_database_name(p,p.database):'')+' / query',
+            printer:result_print_table
         }
         if (p.query.startsWith('select'))
             view.query_decoration=calc_query_decoration(p)
