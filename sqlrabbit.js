@@ -9,7 +9,7 @@ const Cookies = require('cookies')
 
 
 const nav_copy_fields=['sort', 'database', 'query', 'table', 'action', 'dir']
-const max_rows=10
+const max_rows=1000
 var count=0;
 
 var template = read_template('templates/template.htm');
@@ -79,17 +79,16 @@ function print_val_td(val) {
     return('<td>'+decorate(val)+'</td>');
 }
 function print_next_prev(p,print_next) {
-    var buf='';
-    if (p.start >= max_rows) {
-        buf+=p.a('Last', {start:p.start-max_rows},nav_copy_fields);
-    }else
-        buf+='Last';
-    buf+= "&nbsp;&nbsp;&nbsp; |&nbsp;&nbsp;&nbsp";
-    if (print_next) {
-        buf+=p.a('Next',{start:p.start + max_rows}, nav_copy_fields);
-    }else
-        buf+='Next';
-    return buf;
+    function print_link(title,should_print,start){
+        if (should_print) 
+            return p.a(title, {start:start},nav_copy_fields);
+        else
+            return title;
+    }
+    return print_link('Last',p.start >= max_rows,p.start-max_rows)+
+            "&nbsp;&nbsp;&nbsp; |&nbsp;&nbsp;&nbsp"+
+          print_link('Next',print_next,p.start+max_rows)
+
 }
 function print_table_title(p,fields){
     var buf='<tr>'+print_title("   ");
@@ -147,20 +146,6 @@ function decorate_database_name(p,val) {
 function decorate_table_name(p,val) {
     return p.a(val,{action:'table',table:val},['database']);
 }
-function execute(query){
-    function doit(connection){
-        function the_func(resolve,reject){
-            connection.query(query,(error,results,fields)=>{
-                if (error)
-                    reject(error)
-                else
-                    resolve([results,fields])
-            })
-        }
-        return new Promise(the_func)
-    }
-    return doit;
-}
 
 function query_and_send(p,view){
     function send_results(results,fields){
@@ -192,7 +177,6 @@ function query_and_send(p,view){
         p.res.end(mustache.render(login_template, view))
     }
     get_connection(p,execute_and_send,show_login_dialog);
-    //.then(execute(view.query+(view.query_decoration||''))).catch(show_login(p)).then(send_results,send_error)
 }
 function databases_link(p) {
     return p.a('databases',{action:'databases'});
@@ -250,7 +234,6 @@ function SqlRabbit(){
             printer:mem_print_table,
             first_col:decorate_database_name,
         }
-        
         query_and_send(p,view,null,decorate_database_name)
     }
     this.database=(p)=>{
