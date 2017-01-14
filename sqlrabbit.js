@@ -149,7 +149,7 @@ function decorate_table_name(p,val) {
 
 function query_and_send(p,view){
     function send_results(results,fields){
-        if (results === true)
+        if (fields === undefined)
             var view2= {ok:'query completed succesfuly'}; //an exec query
         else
             var view2=view.printer(p,view,results, fields);
