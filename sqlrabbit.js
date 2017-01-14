@@ -148,24 +148,19 @@ function decorate_table_name(p,val) {
 }
 
 function query_and_send(p,view){
-    function send_results(results,fields){
+    function calc_view2(results,fields,error){
+        if (error)
+            return { query_error: error }
         if (fields === undefined)
-            var view2= {ok:'query completed succesfuly'}; //an exec query
-        else
-            var view2=view.printer(p,view,results, fields);
-        send(p,view,view2);
-    }
-    function send_error(msg){
-       send(p,{query_error:msg},view);
+            return { ok: 'query completed succesfuly' }; //an exec query
+        return view.printer(p,view,results, fields);
     }
     function execute_and_send(connection){
         view.query_edit_href=p.href({action:'query',query:view.query,database:p.database})
         var query=view.query+(view.query_decoration||'');
         connection.query(query,(error,results,fields)=>{
-            if (error)
-                send_error(error)
-            else
-                send_results(results,fields)
+            var view2 = calc_view2(results, fields, error);
+            send(p,view,view2)
             connection.destroy()
         })
     }
