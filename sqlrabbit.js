@@ -5,24 +5,21 @@ const _=require('lodash');
 const fs = require('fs');
 var mysql      = require('mysql');
 const Cookies = require('cookies')
-
-
-
 const nav_copy_fields=['sort', 'database', 'query', 'table', 'action', 'dir']
-const max_rows=1000
-var count=0;
+const max_rows=100
 
 var template = read_template('templates/template.htm');
 var login_template = read_template('templates/login_template.htm')
 function read_template(file_name){
-    var content=fs.readFileSync(file_name,'utf8')
-    return content
-    console.log(content)
-    return mustache.parse(content)
+    return fs.readFileSync(file_name,'utf8')
+}
+function render(template, view, view2, view3) {
+    var merged=_.extend({},view, view2, view3)
+    return mustache.render(template, merged)
 }
 
-function get_connection(p,ok,err){
-    var connection = mysql.createConnection(p.conn_p);
+function get_connection(connp, ok, err) {
+    var connection = mysql.createConnection(connp);
     connection.connect(err_msg=>{
         if (err_msg)
             err(err_msg)
@@ -30,10 +27,7 @@ function get_connection(p,ok,err){
             ok(connection); 
     })
 }
-function send(p,vals,vals2){
-    _.extend(vals,vals2,p)
-    p.res.end(mustache.render(template, vals))
-}
+
 function print_title(s) {
     return '<td class=heading>'+s+'</td>\n';
 }
@@ -146,7 +140,25 @@ function decorate_database_name(p,val) {
 function decorate_table_name(p,val) {
     return p.a(val,{action:'table',table:val},['database']);
 }
+function read_connp(p) {
+    function read_from_cookie() {
+        try {
+            return JSON.parse(p.cookies.get('connp'));
+            
+        } catch (e) {
+            return { host: 'localhost', user: 'guest', password: 'guest' }
+        }
+    }
+    var ans = read_from_cookie()
+    ans = _.extend(ans, p)
+     ans = _.pick(ans, 'host', 'user', 'password', 'database');
+    return ans
+}
 
+function save_connp(p) {
+    var connp = _.pick(p, 'host', 'user', 'password');
+    p.cookies.set('connp', JSON.stringify(connp));
+}
 function query_and_send(p,view){
     function calc_view2(results,fields,error){
         if (error)
@@ -160,18 +172,15 @@ function query_and_send(p,view){
         var query=view.query+(view.query_decoration||'');
         connection.query(query,(error,results,fields)=>{
             var view2 = calc_view2(results, fields, error);
-            send(p,view,view2)
+            p.res.end(render(template, view,view2,p))
             connection.destroy()
         })
     }
-    function show_login_dialog(error){
-        var view={};
-        if (p.show_login_error)
-            view.error=error
-        _.extend(view,p.conn_p)
-        p.res.end(mustache.render(login_template, view))
+    function redirect_to_login() {
+        send_redirect(p,p.href({ action: 'login' }));
     }
-    get_connection(p,execute_and_send,show_login_dialog);
+
+    get_connection(read_connp(p), execute_and_send, redirect_to_login);
 }
 function databases_link(p) {
     return p.a('databases',{action:'databases'});
@@ -188,38 +197,32 @@ function  calc_query_decoration(p){
     ans+=' limit '+p.start+', '+max_rows;
     return ans
 }
-function calc_conn_p(p){
-    return {
-        host     : p.cookies.get('host'),//||'localhoster',
-        user     : p.cookies.get('user'),//||'guest',
-        password : p.cookies.get('password'),//||'guest',
-        database :  p.database
-        /*host     : 'localhost',
-        user     : 'root',
-        password : 'ilana',*/      
-    }
-}
+function send_redirect(p,url){
+    p.res.writeHead(302, { 'Location': url })
+    p.res.end();
+};
 function SqlRabbit(){
     this.all=(p)=>{
         p.start=parseInt(p.start)||0
         p.cookies=new Cookies(p.req,p.res);
-        p.conn_p=calc_conn_p(p);
         p.logout_href=p.href({action:'logout'})
     }
-    this.login_submit=(p)=>{
-        p.cookies.set('host',p.host);
-        p.cookies.set('user',p.user);
-        p.cookies.set('password',p.password);
-        p.conn_p=calc_conn_p(p);
-        p.show_login_error=true;
-        this.databases(p);
+    this.login=(p)=>{
+        p.res.end(render(login_template,p))      
+    }
+    this.login_submit = (p) => {
+        function login_error(error){
+            p.res.end(render(login_template, p, { error: error }))
+        }
+        function login_ok(connection) {
+            send_redirect(p, '/');
+        }
+        save_connp(p)
+        get_connection(p, login_ok, login_error);        
     }
     this.logout=(p)=>{
-        p.cookies.set('host');
-        p.cookies.set('user');
-        p.cookies.set('password');
-        p.show_login_error=false;
-        this.databases(p);
+        p.cookies.set('connp');
+        send_redirect(p, '/');
     }
     this.databases=(p)=>{
         var view={
@@ -252,7 +255,7 @@ function SqlRabbit(){
             query: 'select * from '+p.table,
             navbar:databases_link(p)+' / '+decorate_database_name(p,p.database)+' / '+p.table,
             query_decoration: calc_query_decoration(p),
-            printer:mem_print_table
+            printer:result_print_table
         }
         query_and_send(p,view)
     }
