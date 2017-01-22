@@ -82,7 +82,6 @@ function print_next_prev(p,print_next) {
     return print_link('Last',p.start >= max_rows,p.start-max_rows)+
             "&nbsp;&nbsp;&nbsp; |&nbsp;&nbsp;&nbsp"+
           print_link('Next',print_next,p.start+max_rows)
-
 }
 function print_table_title(p,fields){
     var buf='<tr>'+print_title("   ");
@@ -172,7 +171,9 @@ function query_and_send(p,view){
         var query=view.query+(view.query_decoration||'');
         connection.query(query,(error,results,fields)=>{
             var view2 = calc_view2(results, fields, error);
-            p.res.end(render(template, view,view2,p))
+            view.logout_href = p.href({ action: 'logout' })
+            view.conn_p = read_connp(p);
+            p.res.end(render(template, view,view2))
             connection.destroy()
         })
     }
@@ -205,7 +206,6 @@ function SqlRabbit(){
     this.all=(p)=>{
         p.start=parseInt(p.start)||0
         p.cookies=new Cookies(p.req,p.res);
-        p.logout_href=p.href({action:'logout'})
     }
     this.login=(p)=>{
         p.res.end(render(login_template,p))      
