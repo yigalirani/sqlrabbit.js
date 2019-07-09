@@ -287,7 +287,8 @@ Router({
     static_files:'^(/favicon.ico)|(/media/.*)$',
     controller:new SqlRabbit(),
     default_action:'databases',
-    port:3000,
+    port:80,
+    hostname:'0.0.0.0',
     path_rules:[
         'databases:start',
         'database/database:start',
