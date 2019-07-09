@@ -274,6 +274,7 @@ function SqlRabbit(){
             about:'Enter any sql query'+(p.database?' for database '+p.database:''),
             title:'User query',
             query:p.query,
+            database:p.database,
             querytext:p.query,
             navbar:databases_link(p)+(p.database?'/' + decorate_database_name(p,p.database):'')+' / query',
             printer:result_print_table
