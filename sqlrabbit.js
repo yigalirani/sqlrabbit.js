@@ -284,11 +284,22 @@ function SqlRabbit(){
         query_and_send(p,view,null,null)
    }
 }
+const port = require('yargs')
+   .option('p', {
+        alias: 'port',
+        demandOption: false,
+        default: 80,
+        describe: 'port to bind to ',
+        type: 'number'
+    })
+    .argv.port
+    
+
 Router({
     static_files:'^(/favicon.ico)|(/media/.*)$',
     controller:new SqlRabbit(),
     default_action:'databases',
-    port:80,
+    port,
     hostname:'0.0.0.0',
     path_rules:[
         'databases:start',
