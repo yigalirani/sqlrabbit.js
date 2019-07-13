@@ -1,11 +1,18 @@
 'use strict'
-const Router = require('myrouter');
+const express = require('express')
+const session = require('express-session')
+const app = express()
+app.use(session({ secret: 'keyboard cat', cookie: { maxAge: 6000000 }}))
+
+app.use(express.static('media')) //all that needss to do to serve the static files
+
 const mustache=require('mustache');
 const _=require('lodash');
 const fs = require('fs');
 var mysql      = require('mysql');
 const Cookies = require('cookies')
 const nav_copy_fields=['sort', 'database', 'query', 'table', 'action', 'dir']
+const conn_fields=['host', 'user', 'password', 'database']
 const max_rows=100
 
 var template = read_template('templates/template.htm');
@@ -18,8 +25,8 @@ function render(template, view, view2, view3) {
     return mustache.render(template, merged)
 }
 
-function get_connection(connp, ok, err) {
-    var connection = mysql.createConnection(connp);
+function get_connection(req, ok, err) { //should convert this to promise?
+    var connection = mysql.createConnection(req.query);
     connection.connect(err_msg=>{
         if (err_msg)
             err(err_msg)
@@ -183,10 +190,10 @@ function query_and_send(p,view){
 
     get_connection(read_connp(p), execute_and_send, redirect_to_login);
 }
-function databases_link(p) {
-    return p.a('databases',{action:'databases'});
-}
-function print_switch(p,table_class, schema_class) {
+const a=(text,href)=>`<a href{href}>{text}</a>`
+const databases_link=()=>a('databases','/databases')
+const href(action,params)
+function print_switch(q,table_class, schema_class) {
     var data_ref = p.href({action:'table'},['database','table']);
     var schema_href = p.href({action:'table_schema'}, ['database', 'table']);
     return '(  <a '+table_class+' href='+data_ref+'>Data</a> | <a '+schema_class+' href='+schema_href+'>Schema</a> )';
@@ -198,77 +205,73 @@ function  calc_query_decoration(p){
     ans+=' limit '+p.start+', '+max_rows;
     return ans
 }
-function send_redirect(p,url){
-    p.res.writeHead(302, { 'Location': url })
-    p.res.end();
-};
-function SqlRabbit(){
-    this.all=(p)=>{
-        p.start=parseInt(p.start)||0
-        p.cookies=new Cookies(p.req,p.res);
+
+app.get('/login', (req, res)=>
+    res.sendFile('/templates/login_template.html');
+)
+app.get('/login_submit', (req, res)=>{
+    get_connection(p, 
+        ()=>{
+            req.session.connp=_.pick(req.query,conn_fields); //save field to the session
+            res.redirect('/')
+        } 
+        error=>send_template(req,login_template,{ error: error })
+    )
+
+})
+
+app.get('/logout',(req,res)=>{
+    req.session.connp=null;
+    res.redirect('/')
+})
+
+app.get('/databases',(req,res)=>{
+    var view={
+        about:'The table below shows all the databases that are accessible in this server: Click on any database below to browse it',
+        title:'show databases',
+        query:'show databases',
+        printer:mem_print_table,
+        first_col:decorate_database_name,
     }
-    this.login=(p)=>{
-        p.res.end(render(login_template,p))      
+    query_and_send(req,res,view)
+})
+app.get('/database',(req,res)=>{
+    var database = req.query.database;
+    var view={
+        about: 'The table below shows all the available tables in the database '+database+', Click on any table below to browse it',
+        title: 'show database '+database,
+        query: 'show table status',
+        navbar: databases_link(p)+" / "+database,
+        printer:mem_print_table,
+        first_col:decorate_table_name,
+        show_cols:[0, 1, 4, 17]
     }
-    this.login_submit = (p) => {
-        function login_error(error){
-            p.res.end(render(login_template, p, { error: error }))
-        }
-        function login_ok(connection) {
-            send_redirect(p, '/');
-        }
-        save_connp(p)
-        get_connection(p, login_ok, login_error);        
+    query_and_send(req,res,view)
+}
+app.get('/table',(req,res)=>{
+    var database = req.query.database;
+    var table = req.query.table;    
+    var view={
+        about:'The table below shows the table '+table+', you can select either schema or data view',
+        view_options:print_switch(p,'class=selected', ''),
+        title: database+' / ' +table,
+        query: 'select * from '+table,
+        navbar:databases_link(req)+' / '+decorate_database_name(p,p.database)+' / '+p.table,
+        query_decoration: calc_query_decoration(p),
+        printer:result_print_table
     }
-    this.logout=(p)=>{
-        p.cookies.set('connp');
-        send_redirect(p, '/');
+    query_and_send(req,res,view)
+})
+app.get('/table_schema',(req,res)=>{
+    var view={
+        about: 'The table below shows the table '+p.table+', you can select either schema or data view',
+        view_options: print_switch(p,'', 'class=selected'),
+        query:'describe '+p.table,
+        navbar:databases_link(p)+" / "+decorate_database_name(p,p.database)+' / '+p.table,
+        printer:mem_print_table
     }
-    this.databases=(p)=>{
-        var view={
-            about:'The table below shows all the databases that are accessible in this server: Click on any database below to browse it',
-            title:'show databases',
-            query:'show databases',
-            printer:mem_print_table,
-            first_col:decorate_database_name,
-        }
-        query_and_send(p,view,null,decorate_database_name)
-    }
-    this.database=(p)=>{
-        var database = p.database;
-        var view={
-            about: 'The table below shows all the available tables in the database '+database+', Click on any table below to browse it',
-            title: 'show database '+database,
-            query: 'show table status',
-            navbar: databases_link(p)+" / "+database,
-            printer:mem_print_table,
-            first_col:decorate_table_name,
-            show_cols:[0, 1, 4, 17]
-        }
-        query_and_send(p,view)
-    }
-    this.table=(p)=>{
-        var view={
-            about:'The table below shows the table '+p.table+', you can select either schema or data view',
-            view_options:print_switch(p,'class=selected', ''),
-            title: p.database+' / ' +p.table,
-            query: 'select * from '+p.table,
-            navbar:databases_link(p)+' / '+decorate_database_name(p,p.database)+' / '+p.table,
-            query_decoration: calc_query_decoration(p),
-            printer:result_print_table
-        }
-        query_and_send(p,view)
-    }
-    this.table_schema=(p)=>{
-        var view={
-            about: 'The table below shows the table '+p.table+', you can select either schema or data view',
-            view_options: print_switch(p,'', 'class=selected'),
-            query:'describe '+p.table,
-            navbar:databases_link(p)+" / "+decorate_database_name(p,p.database)+' / '+p.table,
-            printer:mem_print_table
-        }
-        query_and_send(p,view)
-    }
+    query_and_send(p,view)
+}
     this.query=(p)=>{
         var view={
             about:'Enter any sql query'+(p.database?' for database '+p.database:''),

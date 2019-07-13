@@ -22,10 +22,12 @@
   "homepage": "https://github.com/yigalirani/sqlrabbit.js#readme",
   "dependencies": {
     "cookies": "^0.6.2",
+    "express-session": "^1.16.2",
     "lodash": "^4.17.4",
     "mustache": "^2.3.0",
     "myrouter": "^1.0.1",
     "mysql": "^2.12.0",
+    "session": "^0.1.0",
     "yargs": "^13.2.4"
   }
 }
