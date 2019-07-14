@@ -27,7 +27,7 @@ function render(template, view, view2, view3) {
 
 function get_connection(connp, ok, err) { //should convert this to promise?
     var connection = mysql.createConnection(connp);
-    connection.connect(err_msg=>{
+    connection.connect(err_msg=>{   
         if (err_msg)
             err(err_msg)
         else
@@ -46,11 +46,17 @@ function param_one_of(value,values){
 function param_toggle(val,vals){
     return val==vals[0]?vals[1]:vals[0];
 }
-function href(req,overides,copy_fields){
+function href(req,overides={},copy_fields=[]){
     var path=overides.action||req.path
-    _.pick(req.query,copy_fields)
-    return 'path/?'+Object.keys(obj).map(key=>key+'='+obj[key]).join('&')
+    var values=Object.assign({},_.pick(req.query,copy_fields),overides)
+    values=_.pickBy(values,_.identity)//removed empty fields
+    var ans= path+'/?'+Object.keys(values).map(key=>key+'='+values[key]).join('&')
+    return ans
 }
+function a(req,text,overides={},copy_fields=[]){
+    return `<a href='${href(req,overides,copy_fields)}'>${text}</a>`
+}
+
 function print_sort_title(req,field) {
     if (req.sort == field) {
         let dir_values = ['asc', 'desc'];
@@ -60,7 +66,7 @@ function print_sort_title(req,field) {
         let img = '<img src=/media/'+dir+'.png>';
         return('<td class=heading id='+field+'><a href='+href+'>'+field+'  '+img+'</a></td>\n');
     } else {
-        let link = req.a(field, {sort:field,dir:'asc'}, nav_copy_fields);
+        let link = a(req,field, {sort:field,dir:'asc'}, nav_copy_fields);
         return('<td class=heading id='+field+'>'+link+'</td>\n');
     }
 }
@@ -87,7 +93,7 @@ function print_val_td(val) {
 function print_next_prev(req,print_next) {
     function print_link(title,should_print,start){
         if (should_print) 
-            return req.a(title, {start:start},nav_copy_fields);
+            return a(req,title, {start:start},nav_copy_fields);
         else
             return title;
     }
@@ -122,13 +128,15 @@ function make_result(req,body,fields,print_next,lastline=''){
     }
 } 
 function mem_print_table(req,view,results, fields) {
-    if (req.sort)
+    var q=req.query
+    if (q.sort)
         results=_.sortBy(results,(x)=>x[req.sort]);
-    if (req.dir=='desc')
+    if (q.dir=='desc')
         results=results.reverse()
     var buf=''
+    var start=q.start||0
     var shown_fields=_.filter(fields,(value, i)=>!view.show_cols||_.includes(view.show_cols,i))
-    for (var i = req.start; i < req.start + max_rows; i++) {
+    for (var i = start; i < start + max_rows; i++) {
         if (i >= results.length)
             return make_result(req,buf,shown_fields,false,print_last_line(fields.length,i==0))
         buf+=print_row(req,results[i],i+1,shown_fields,view.first_col)
@@ -146,23 +154,15 @@ function result_print_table(req,view,results, fields) {
     return make_result(req,buf,fields,true)
 }
 function decorate_database_name(req,val) {
-    return req.a(val, {action:'database',database:val});
+    return a(req,val, {action:'database',database:val});
 }
 function decorate_table_name(req,val) {
-    return req.a(val,{action:'table',table:val},['database']);
+    return a(req,val,{action:'table',table:val},['database']);
 }
 function read_connp(req) {
-    function read_from_cookie() {
-        try {
-            return JSON.parse(req.cookies.get('connp'));
-            
-        } catch (e) {
-            return { host: 'localhost', user: 'guest', password: 'guest' }
-        }
-    }
-    var ans = read_from_cookie()
-    ans = _.extend(ans, req)
-     ans = _.pick(ans, 'host', 'user', 'password', 'database');
+    var ans = req.session.connp
+    ans = _.extend(ans, req.query)
+    ans = _.pick(ans, 'host', 'user', 'password', 'database');
     return ans
 }
 
@@ -185,7 +185,7 @@ function query_and_send(req,res,view){
             var view2 = calc_view2(results, fields, error);
             view.logout_href = href(req,{ action: 'logout' })
             view.conn_p = read_connp(req);
-            res.end(render(template, view,view2))
+            res.send(render(template, view,view2))
             connection.destroy()
         })
     }
@@ -195,7 +195,7 @@ function query_and_send(req,res,view){
 
     get_connection(read_connp(req), execute_and_send, redirect_to_login);
 }
-const a=(text,href)=>`<a href{href}>{text}</a>`
+
 const databases_link=()=>a('databases','/databases')
 
 function print_switch(q,table_class, schema_class) {
@@ -215,7 +215,7 @@ app.get('/login', (req, res)=>
     res.send(render(login_template))
 )
 app.get('/login_submit', (req, res)=>{
-    get_connection(req, 
+    get_connection(read_connp(req), 
         ()=>{
             req.session.connp=_.pick(req.query,conn_fields); //save field to the session
             res.redirect('/')
