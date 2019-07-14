@@ -5,7 +5,7 @@ const app = express()
 app.use(session({ secret: 'keyboard cat', cookie: { maxAge: 6000000 }}))
 
 app.use(express.static('media')) //all that needss to do to serve the static files
-
+ 
 const mustache=require('mustache');
 const _=require('lodash');
 const fs = require('fs');
@@ -25,8 +25,8 @@ function render(template, view, view2, view3) {
     return mustache.render(template, merged)
 }
 
-function get_connection(req, ok, err) { //should convert this to promise?
-    var connection = mysql.createConnection(req.query);
+function get_connection(connp, ok, err) { //should convert this to promise?
+    var connection = mysql.createConnection(connp);
     connection.connect(err_msg=>{
         if (err_msg)
             err(err_msg)
@@ -46,16 +46,21 @@ function param_one_of(value,values){
 function param_toggle(val,vals){
     return val==vals[0]?vals[1]:vals[0];
 }
-function print_sort_title(p,field) {
-    if (p.sort == field) {
+function href(req,overides,copy_fields){
+    var path=overides.action||req.path
+    _.pick(req.query,copy_fields)
+    return 'path/?'+Object.keys(obj).map(key=>key+'='+obj[key]).join('&')
+}
+function print_sort_title(req,field) {
+    if (req.sort == field) {
         let dir_values = ['asc', 'desc'];
-        let dir = param_one_of(p.dir, dir_values);
-        let other_dir = param_toggle(p.dir,dir_values);
-        let href = p.href({dir:other_dir},nav_copy_fields);
+        let dir = param_one_of(req.dir, dir_values);
+        let other_dir = param_toggle(req.dir,dir_values);
+        let href = href(req,{dir:other_dir},nav_copy_fields);
         let img = '<img src=/media/'+dir+'.png>';
         return('<td class=heading id='+field+'><a href='+href+'>'+field+'  '+img+'</a></td>\n');
     } else {
-        let link = p.a(field, {sort:field,dir:'asc'}, nav_copy_fields);
+        let link = req.a(field, {sort:field,dir:'asc'}, nav_copy_fields);
         return('<td class=heading id='+field+'>'+link+'</td>\n');
     }
 }
@@ -79,142 +84,142 @@ function decorate(val){
 function print_val_td(val) {
     return('<td>'+decorate(val)+'</td>');
 }
-function print_next_prev(p,print_next) {
+function print_next_prev(req,print_next) {
     function print_link(title,should_print,start){
         if (should_print) 
-            return p.a(title, {start:start},nav_copy_fields);
+            return req.a(title, {start:start},nav_copy_fields);
         else
             return title;
     }
-    return print_link('Last',p.start >= max_rows,p.start-max_rows)+
+    return print_link('Last',req.start >= max_rows,req.start-max_rows)+
             "&nbsp;&nbsp;&nbsp; |&nbsp;&nbsp;&nbsp"+
-          print_link('Next',print_next,p.start+max_rows)
+          print_link('Next',print_next,req.start+max_rows)
 }
-function print_table_title(p,fields){
+function print_table_title(req,fields){
     var buf='<tr>'+print_title("   ");
     _.each(fields,(field)=>
-        buf+=print_sort_title(p,field.name));
+        buf+=print_sort_title(req,field.name));
     buf+="</tr>";
     return buf
 }
-function print_row(p,row,oridnal,fields,first_col){
+function print_row(req,row,oridnal,fields,first_col){
     var buf="<tr>\n";
     buf += print_title(oridnal);//row num
     _.each(fields, (field,j)=> {
         let val=row[field.name]
         if (j == 0 && first_col)
-            val = first_col(p,val);
+            val = first_col(req,val);
         buf+=print_val_td(val);
     })
     buf+="</tr>";
     return buf
 }
-function make_result(p,body,fields,print_next,lastline=''){
-    var table="\n<table id=data>"+print_table_title(p,fields)+body+lastline+'</table>\n'
+function make_result(req,body,fields,print_next,lastline=''){
+    var table="\n<table id=data>"+print_table_title(req,fields)+body+lastline+'</table>\n'
     return {
-        nextprev:print_next_prev(p,print_next),
+        nextprev:print_next_prev(req,print_next),
         query_result:table
     }
 } 
-function mem_print_table(p,view,results, fields) {
-    if (p.sort)
-        results=_.sortBy(results,(x)=>x[p.sort]);
-    if (p.dir=='desc')
+function mem_print_table(req,view,results, fields) {
+    if (req.sort)
+        results=_.sortBy(results,(x)=>x[req.sort]);
+    if (req.dir=='desc')
         results=results.reverse()
     var buf=''
     var shown_fields=_.filter(fields,(value, i)=>!view.show_cols||_.includes(view.show_cols,i))
-    for (var i = p.start; i < p.start + max_rows; i++) {
+    for (var i = req.start; i < req.start + max_rows; i++) {
         if (i >= results.length)
-            return make_result(p,buf,shown_fields,false,print_last_line(fields.length,i==0))
-        buf+=print_row(p,results[i],i+1,shown_fields,view.first_col)
+            return make_result(req,buf,shown_fields,false,print_last_line(fields.length,i==0))
+        buf+=print_row(req,results[i],i+1,shown_fields,view.first_col)
     }
-    return make_result(p,buf,shown_fields,true)
+    return make_result(req,buf,shown_fields,true)
 }
-function result_print_table(p,view,results, fields) {
+function result_print_table(req,view,results, fields) {
     var shown_fields=fields
     var buf=''
     for (var i = 0; i < max_rows; i++) {
         if (i >= results.length)
-            return make_result(p,buf,fields,false,print_last_line(fields.length,i==0))
-        buf+=print_row(p,results[i],i+1+p.start,shown_fields,view.first_col)
+            return make_result(req,buf,fields,false,print_last_line(fields.length,i==0))
+        buf+=print_row(req,results[i],i+1+req.start,shown_fields,view.first_col)
     }
-    return make_result(p,buf,fields,true)
+    return make_result(req,buf,fields,true)
 }
-function decorate_database_name(p,val) {
-    return p.a(val, {action:'database',database:val});
+function decorate_database_name(req,val) {
+    return req.a(val, {action:'database',database:val});
 }
-function decorate_table_name(p,val) {
-    return p.a(val,{action:'table',table:val},['database']);
+function decorate_table_name(req,val) {
+    return req.a(val,{action:'table',table:val},['database']);
 }
-function read_connp(p) {
+function read_connp(req) {
     function read_from_cookie() {
         try {
-            return JSON.parse(p.cookies.get('connp'));
+            return JSON.parse(req.cookies.get('connp'));
             
         } catch (e) {
             return { host: 'localhost', user: 'guest', password: 'guest' }
         }
     }
     var ans = read_from_cookie()
-    ans = _.extend(ans, p)
+    ans = _.extend(ans, req)
      ans = _.pick(ans, 'host', 'user', 'password', 'database');
     return ans
 }
 
-function save_connp(p) {
-    var connp = _.pick(p, 'host', 'user', 'password');
-    p.cookies.set('connp', JSON.stringify(connp));
+function save_connp(req) {
+    var connp = _.pick(req, 'host', 'user', 'password');
+    req.cookies.set('connp', JSON.stringify(connp));
 }
-function query_and_send(p,view){
+function query_and_send(req,res,view){
     function calc_view2(results,fields,error){
         if (error)
             return { query_error: error }
         if (fields === undefined)
             return { ok: 'query completed succesfuly' }; //an exec query
-        return view.printer(p,view,results, fields);
-    }
+        return view.printer(req,view,results, fields);
+    } 
     function execute_and_send(connection){
-        view.query_edit_href=p.href({action:'query',query:view.query,database:p.database})
+        view.query_edit_href=href(req,{action:'query',query:view.query,database:req.database})
         var query=view.query+(view.query_decoration||'');
         connection.query(query,(error,results,fields)=>{
             var view2 = calc_view2(results, fields, error);
-            view.logout_href = p.href({ action: 'logout' })
-            view.conn_p = read_connp(p);
-            p.res.end(render(template, view,view2))
+            view.logout_href = href(req,{ action: 'logout' })
+            view.conn_p = read_connp(req);
+            res.end(render(template, view,view2))
             connection.destroy()
         })
     }
     function redirect_to_login() {
-        send_redirect(p,p.href({ action: 'login' }));
+        res.redirect('/login');
     }
 
-    get_connection(read_connp(p), execute_and_send, redirect_to_login);
+    get_connection(read_connp(req), execute_and_send, redirect_to_login);
 }
 const a=(text,href)=>`<a href{href}>{text}</a>`
 const databases_link=()=>a('databases','/databases')
-const href(action,params)
+
 function print_switch(q,table_class, schema_class) {
-    var data_ref = p.href({action:'table'},['database','table']);
-    var schema_href = p.href({action:'table_schema'}, ['database', 'table']);
+    var data_ref = href(req,{action:'table'},['database','table']);
+    var schema_href = href(req,{action:'table_schema'}, ['database', 'table']);
     return '(  <a '+table_class+' href='+data_ref+'>Data</a> | <a '+schema_class+' href='+schema_href+'>Schema</a> )';
 }
-function  calc_query_decoration(p){
+function  calc_query_decoration(req){
    var ans='';
-    if (p.sort)
-        ans+=' order by '+p.sort+' '+p.dir+' ';
-    ans+=' limit '+p.start+', '+max_rows;
+    if (req.sort)
+        ans+=' order by '+req.sort+' '+req.dir+' ';
+    ans+=' limit '+req.start+', '+max_rows;
     return ans
 }
 
 app.get('/login', (req, res)=>
-    res.sendFile('/templates/login_template.html');
+    res.send(render(login_template))
 )
 app.get('/login_submit', (req, res)=>{
-    get_connection(p, 
+    get_connection(req, 
         ()=>{
             req.session.connp=_.pick(req.query,conn_fields); //save field to the session
             res.redirect('/')
-        } 
+        },
         error=>send_template(req,login_template,{ error: error })
     )
 
@@ -224,8 +229,7 @@ app.get('/logout',(req,res)=>{
     req.session.connp=null;
     res.redirect('/')
 })
-
-app.get('/databases',(req,res)=>{
+function databases(req,res){
     var view={
         about:'The table below shows all the databases that are accessible in this server: Click on any database below to browse it',
         title:'show databases',
@@ -233,62 +237,65 @@ app.get('/databases',(req,res)=>{
         printer:mem_print_table,
         first_col:decorate_database_name,
     }
-    query_and_send(req,res,view)
-})
+    query_and_send(req,res,view)    
+}
+app.get('/databases',databases)
+app.get('/',databases)
+
 app.get('/database',(req,res)=>{
     var database = req.query.database;
     var view={
         about: 'The table below shows all the available tables in the database '+database+', Click on any table below to browse it',
         title: 'show database '+database,
         query: 'show table status',
-        navbar: databases_link(p)+" / "+database,
+        navbar: databases_link(req)+" / "+database,
         printer:mem_print_table,
         first_col:decorate_table_name,
         show_cols:[0, 1, 4, 17]
     }
     query_and_send(req,res,view)
-}
+})
 app.get('/table',(req,res)=>{
     var database = req.query.database;
     var table = req.query.table;    
     var view={
         about:'The table below shows the table '+table+', you can select either schema or data view',
-        view_options:print_switch(p,'class=selected', ''),
+        view_options:print_switch(req,'class=selected', ''),
         title: database+' / ' +table,
         query: 'select * from '+table,
-        navbar:databases_link(req)+' / '+decorate_database_name(p,p.database)+' / '+p.table,
-        query_decoration: calc_query_decoration(p),
+        navbar:databases_link(req)+' / '+decorate_database_name(req,req.database)+' / '+req.table,
+        query_decoration: calc_query_decoration(req),
         printer:result_print_table
     }
     query_and_send(req,res,view)
 })
 app.get('/table_schema',(req,res)=>{
     var view={
-        about: 'The table below shows the table '+p.table+', you can select either schema or data view',
-        view_options: print_switch(p,'', 'class=selected'),
-        query:'describe '+p.table,
-        navbar:databases_link(p)+" / "+decorate_database_name(p,p.database)+' / '+p.table,
+        about: 'The table below shows the table '+req.table+', you can select either schema or data view',
+        view_options: print_switch(req,'', 'class=selected'),
+        query:'describe '+req.table,
+        navbar:databases_link(req)+" / "+decorate_database_name(req,req.database)+' / '+req.table,
         printer:mem_print_table
     }
-    query_and_send(p,view)
-}
-    this.query=(p)=>{
-        var view={
-            about:'Enter any sql query'+(p.database?' for database '+p.database:''),
-            title:'User query',
-            query:p.query,
-            database:p.database,
-            querytext:p.query,
-            navbar:databases_link(p)+(p.database?'/' + decorate_database_name(p,p.database):'')+' / query',
-            printer:result_print_table
-        }
-        if (p.query.startsWith('select'))
-            view.query_decoration=calc_query_decoration(p)
-        query_and_send(p,view,null,null)
-   }
-}
+    query_and_send(req,view)
+})
+
+app.get('/query',(req,res)=>{
+    var view={
+        about:'Enter any sql query'+(req.database?' for database '+req.database:''),
+        title:'User query',
+        query:req.query,
+        database:req.database,
+        querytext:req.query,
+        navbar:databases_link(req)+(req.database?'/' + decorate_database_name(req,req.database):'')+' / query',
+        printer:result_print_table
+    }
+    if (req.query.startsWith('select'))
+        view.query_decoration=calc_query_decoration(req)
+    query_and_send(req,view,null,null)
+})
 const port = require('yargs')
-   .option('p', {
+   .option('req', {
         alias: 'port',
         demandOption: false,
         default: 80,
@@ -296,17 +303,4 @@ const port = require('yargs')
         type: 'number'
     })
     .argv.port
-    
-
-Router({
-    static_files:'^(/favicon.ico)|(/media/.*)$',
-    controller:new SqlRabbit(),
-    default_action:'databases',
-    port,
-    hostname:'0.0.0.0',
-    path_rules:[
-        'databases:start',
-        'database/database:start',
-        'table/database/table:start',
-        'table_schema/database/table:start']
-})
+app.listen(port, () => console.log(`Example app listening on porrt ${port}!`))

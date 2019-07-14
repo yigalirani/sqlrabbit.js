@@ -4,7 +4,9 @@
   "description": "Easily browse mysql databases with node",
   "main": "sqlrabbit.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index",
+    "dev": "nodemon  index"
   },
   "repository": {
     "type": "git",
@@ -22,6 +24,7 @@
   "homepage": "https://github.com/yigalirani/sqlrabbit.js#readme",
   "dependencies": {
     "cookies": "^0.6.2",
+    "express": "^4.17.1",
     "express-session": "^1.16.2",
     "lodash": "^4.17.4",
     "mustache": "^2.3.0",
@@ -29,5 +32,8 @@
     "mysql": "^2.12.0",
     "session": "^0.1.0",
     "yargs": "^13.2.4"
+  },
+  "devDependencies": {
+    "nodemon": "^1.19.1"
   }
 }
