@@ -8,7 +8,7 @@
 <body>
     <a href=/><img src=logo.png></a><br>
     <div class=login_form>
-        <form action=/ method="get" type="post">
+        <form action=/login_submit method="get" type="post">
             <b>Login:</b><br>
             <table>
                 <tr><td>server</td><td><input name="host" type="text" value='{{host}}'></td></tr>
@@ -16,7 +16,6 @@
                 <tr><td>password:</td><td><input name="password" type="password" value="{{password}}"></td></tr>
             </table>
             {{#error}}<div class='error'>{{.}}</div>{{/error}}
-            <input type='hidden' name="action" value="login_submit"><br>
 
             <input type="submit" value="submit"><br>
         </form>

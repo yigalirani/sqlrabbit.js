@@ -220,7 +220,7 @@ app.get('/login_submit', (req, res)=>{
             req.session.connp=_.pick(req.query,conn_fields); //save field to the session
             res.redirect('/')
         },
-        error=>send_template(req,login_template,{ error: error })
+        error=>res.send(render(login_template,req,{ error: error }))
     )
 
 })
