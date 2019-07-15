@@ -264,7 +264,7 @@ app.get('/table',(req,res)=>{
         view_options:print_switch(req,'class=selected', ''),
         title: database+' / ' +table,
         query: 'select * from '+table,
-        navbar:databases_link(req)+' / '+decorate_database_name(req,req.database)+' / '+req.table,
+        navbar:databases_link(req)+' / '+decorate_database_name(req,database)+' / '+table,
         query_decoration: calc_query_decoration(req),
         printer:result_print_table
     }
