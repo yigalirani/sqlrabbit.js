@@ -50,7 +50,7 @@ function href(req,overides={},copy_fields=[]){
     var path=overides.action||req.path
     var values=Object.assign({},_.pick(req.query,copy_fields),overides)
     values=_.pickBy(values,_.identity)//removed empty fields
-    var ans= path+'/?'+Object.keys(values).map(key=>key+'='+values[key]).join('&')
+    var ans= '/'+path+'/?'+Object.keys(values).map(key=>key+'='+values[key]).join('&')
     return ans
 }
 function a(req,text,overides={},copy_fields=[]){
@@ -196,18 +196,19 @@ function query_and_send(req,res,view){
     get_connection(read_connp(req), execute_and_send, redirect_to_login);
 }
 
-const databases_link=()=>a('databases','/databases')
+const databases_link=(req)=>a(req,'databases',{action:'databases'})
 
-function print_switch(q,table_class, schema_class) {
+function print_switch(req,table_class, schema_class) {
     var data_ref = href(req,{action:'table'},['database','table']);
     var schema_href = href(req,{action:'table_schema'}, ['database', 'table']);
     return '(  <a '+table_class+' href='+data_ref+'>Data</a> | <a '+schema_class+' href='+schema_href+'>Schema</a> )';
 }
 function  calc_query_decoration(req){
+    var q=req.query
    var ans='';
     if (req.sort)
-        ans+=' order by '+req.sort+' '+req.dir+' ';
-    ans+=' limit '+req.start+', '+max_rows;
+        ans+=' order by '+q.sort+' '+q.dir+' ';
+    ans+=' limit '+(q.start||0)+', '+max_rows;
     return ans
 }
 
