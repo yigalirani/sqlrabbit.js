@@ -48,6 +48,7 @@ function param_toggle(val,vals){
 }
 function href(req,overides={},copy_fields=[]){
     var path=overides.action||req.path
+    overides.action=null
     var values=Object.assign({},_.pick(req.query,copy_fields),overides)
     values=_.pickBy(values,_.identity)//removed empty fields
     var ans= '/'+path+'/?'+Object.keys(values).map(key=>key+'='+values[key]).join('&')
