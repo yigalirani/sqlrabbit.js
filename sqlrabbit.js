@@ -271,14 +271,16 @@ app.get('/table',(req,res)=>{
     query_and_send(req,res,view)
 })
 app.get('/table_schema',(req,res)=>{
+    var database = req.query.database;
+    var table = req.query.table;    
     var view={
         about: 'The table below shows the table '+req.table+', you can select either schema or data view',
         view_options: print_switch(req,'', 'class=selected'),
-        query:'describe '+req.table,
-        navbar:databases_link(req)+" / "+decorate_database_name(req,req.database)+' / '+req.table,
+        query:'describe '+table,
+        navbar:databases_link(req)+" / "+decorate_database_name(req,database)+' / '+table,
         printer:mem_print_table
     }
-    query_and_send(req,view)
+    query_and_send(req,res,view)
 })
 
 app.get('/query',(req,res)=>{
