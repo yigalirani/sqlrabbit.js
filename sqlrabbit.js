@@ -151,11 +151,12 @@ function mem_print_table(req,view,results, fields) {
 }
 function result_print_table(req,view,results, fields) {
     var shown_fields=fields
+    var start=req.query.start||0
     var buf=''
     for (var i = 0; i < max_rows; i++) {
         if (i >= results.length)
             return make_result(req,buf,fields,false,print_last_line(fields.length,i==0))
-        buf+=print_row(req,results[i],i+1+req.start,shown_fields,view.first_col)
+        buf+=print_row(req,results[i],i+1+start,shown_fields,view.first_col)
     }
     return make_result(req,buf,fields,true)
 }
@@ -211,8 +212,8 @@ function print_switch(req,table_class, schema_class) {
 }
 function  calc_query_decoration(req){
     var q=req.query
-   var ans='';
-    if (req.sort)
+    var ans='';
+    if (q.sort)
         ans+=' order by '+q.sort+' '+q.dir+' ';
     ans+=' limit '+(q.start||0)+', '+max_rows;
     return ans
@@ -290,18 +291,19 @@ app.get('/table_schema',(req,res)=>{
 })
 
 app.get('/query',(req,res)=>{
+    var q=req.query;
     var view={
-        about:'Enter any sql query'+(req.database?' for database '+req.database:''),
+        about:'Enter any sql query'+(q.database?' for database '+q.database:''),
         title:'User query',
-        query:req.query,
-        database:req.database,
-        querytext:req.query,
-        navbar:databases_link(req)+(req.database?'/' + decorate_database_name(req,req.database):'')+' / query',
+        query:q.query,
+        database:q.database,
+        querytext:q.query,
+        navbar:databases_link(req)+(q.database?'/' + decorate_database_name(req,q.database):'')+' / query',
         printer:result_print_table
     }
-    if (req.query.startsWith('select'))
+    if (req.query.query.startsWith('select'))
         view.query_decoration=calc_query_decoration(req)
-    query_and_send(req,view,null,null)
+    query_and_send(req,res,view,null,null)
 })
 const port = require('yargs')
    .option('req', {

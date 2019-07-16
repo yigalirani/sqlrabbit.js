@@ -19,7 +19,7 @@
 
 {{#querytext}}<tr><td class=about_title>Query</td><td>                   
                 <div class=query>
-<form action='/' method="get" type="post">
+<form action='/query' method="get" type="post">
 <textarea name="query" cols="60" rows="5">{{.}}</textarea><br>
 <input name="action" type="submit" value="query"/>
 {{#database}}<input name="database" type="hidden" value='{{.}}'/>{{/database}}
