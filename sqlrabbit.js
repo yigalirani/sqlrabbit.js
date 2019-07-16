@@ -178,6 +178,7 @@ function save_connp(req) {
     req.cookies.set('connp', JSON.stringify(connp));
 }
 function query_and_send(req,res,view){
+    var q=req.query;
     function calc_view2(results,fields,error){
         if (error)
             return { query_error: error }
@@ -186,7 +187,7 @@ function query_and_send(req,res,view){
         return view.printer(req,view,results, fields);
     } 
     function execute_and_send(connection){
-        view.query_edit_href=href(req,{action:'query',query:view.query,database:req.database})
+        view.query_edit_href=href(req,{action:'query',query:view.query,database:q.database})
         var query=view.query+(view.query_decoration||'');
         connection.query(query,(error,results,fields)=>{
             var view2 = calc_view2(results, fields, error);
@@ -298,10 +299,10 @@ app.get('/query',(req,res)=>{
         query:q.query,
         database:q.database,
         querytext:q.query,
-        navbar:databases_link(req)+(q.database?'/' + decorate_database_name(req,q.database):'')+' / query',
+        navbar:databases_link(req)+(q.database?' / ' + decorate_database_name(req,q.database):'')+' / query',
         printer:result_print_table
     }
-    if (req.query.query.startsWith('select'))
+    if (q.query.startsWith('select'))
         view.query_decoration=calc_query_decoration(req)
     query_and_send(req,res,view,null,null)
 })
