@@ -2,7 +2,7 @@
 const express = require('express')
 const session = require('express-session')
 const app = express()
-app.use(session({ secret: 'keyboard cat', cookie: { maxAge: 6000000 }}))
+app.use(session({ secret: 'beyond keyboard', cookie: { maxAge: 6000000 }}))
 
 app.use(express.static('media')) //all that needss to do to serve the static files
  
@@ -10,7 +10,6 @@ const mustache=require('mustache');
 const _=require('lodash');
 const fs = require('fs');
 var mysql      = require('mysql');
-const Cookies = require('cookies')
 const nav_copy_fields=['sort', 'database', 'query', 'table', 'action', 'dir']
 const conn_fields=['host', 'user', 'password', 'database']
 const max_rows=100
@@ -306,13 +305,6 @@ app.get('/query',(req,res)=>{
         view.query_decoration=calc_query_decoration(req)
     query_and_send(req,res,view,null,null)
 })
-const port = require('yargs')
-   .option('req', {
-        alias: 'port',
-        demandOption: false,
-        default: 80,
-        describe: 'port to bind to ',
-        type: 'number'
-    })
-    .argv.port
-app.listen(port, () => console.log(`Example app listening on porrt ${port}!`))
+const port = process.env.PORT||80
+const host =process.env.HOST||'0.0.0.0'
+app.listen(port,host, () => console.log(`SQL Rabbit listening on ${host}:${port}!`))
