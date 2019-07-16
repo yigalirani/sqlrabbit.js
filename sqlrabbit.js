@@ -43,11 +43,14 @@ function param_one_of(value,values){
 		return value
 	return values[0];
 }
-function param_toggle(val,vals){
+function param_toggle(val,vals){ 
     return val==vals[0]?vals[1]:vals[0];
 }
+function cur_action(req){
+    return req.path.replace(/^\/+/g, '').split('/')[0]
+}
 function href(req,overides={},copy_fields=[]){
-    var path=overides.action||req.path
+    var path=overides.action||cur_action(req)
     overides.action=null
     var values=Object.assign({},_.pick(req.query,copy_fields),overides)
     values=_.pickBy(values,_.identity)//removed empty fields
@@ -59,13 +62,15 @@ function a(req,text,overides={},copy_fields=[]){
 }
 
 function print_sort_title(req,field) {
-    if (req.sort == field) {
+    var dir=req.query.dir
+    var sort=req.query.sort
+    if (sort == field) {
         let dir_values = ['asc', 'desc'];
-        let dir = param_one_of(req.dir, dir_values);
-        let other_dir = param_toggle(req.dir,dir_values);
-        let href = href(req,{dir:other_dir},nav_copy_fields);
-        let img = '<img src=/media/'+dir+'.png>';
-        return('<td class=heading id='+field+'><a href='+href+'>'+field+'  '+img+'</a></td>\n');
+        let new_dir = param_one_of(dir, dir_values);
+        let other_dir = param_toggle(new_dir,dir_values);
+        let href_value = href(req,{dir:other_dir},nav_copy_fields);
+        let img = '<img src=/'+dir+'.png>';
+        return('<td class=heading id='+field+'><a href='+href_value+'>'+field+'  '+img+'</a></td>\n');
     } else {
         let link = a(req,field, {sort:field,dir:'asc'}, nav_copy_fields);
         return('<td class=heading id='+field+'>'+link+'</td>\n');
