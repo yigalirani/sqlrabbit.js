@@ -27,13 +27,13 @@ function render(template, view, view2, view3) {
     return mustache.render(template, merged)
 }
 
-function get_connection(connp, ok, err) { //should convert this to promise?
-    var connection = mysql.createConnection(connp);
-    connection.connect(err_msg=>{   
-        if (err_msg)
-            err(err_msg)
-        else
-            ok(connection); 
+function get_connection(connp, ok_cb, err_cb) { //should convert this to promise?
+    var pool=mysql.createPool(connp);
+    pool.getConnection((err,connection)=>{
+        if (err)
+            err_cb(err)
+        else 
+            ok_cb(connection)
     })
 }
 
