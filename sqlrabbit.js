@@ -195,7 +195,7 @@ function query_and_send(req,res,view){
             view.logout_href = href(req,{ action: 'logout' })
             view.conn_p = read_connp(req);
             res.send(render(template, view,view2))
-            connection.destroy()
+            connection.release()
         })
     }
     function redirect_to_login() {
