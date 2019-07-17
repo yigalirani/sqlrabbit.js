@@ -5,7 +5,10 @@ const app = express()
 app.use(session({ secret: 'beyond keyboard', cookie: { maxAge: 6000000 }}))
 
 app.use(express.static('media')) //all that needss to do to serve the static files
- 
+app.use((req, res, next) =>{
+  req.start=parseInt(req.query.start)||0
+  next()
+})
 const mustache=require('mustache');
 const _=require('lodash');
 const fs = require('fs');
@@ -54,7 +57,8 @@ function href(req,overides={},copy_fields=[]){
     var values=Object.assign({},_.pick(req.query,copy_fields),overides)
     values=_.pickBy(values,_.identity)//removed empty fields
     var ans= '/'+path+'/?'+Object.keys(values).map(key=>key+'='+values[key]).join('&')
-    return ans
+    
+    return ans.replace('//','/')
 }
 function a(req,text,overides={},copy_fields=[]){
     return `<a href='${href(req,overides,copy_fields)}'>${text}</a>`
@@ -98,7 +102,7 @@ function print_val_td(val) {
 function print_next_prev(req,print_next) {
     function print_link(title,should_print,start){
         if (should_print) 
-            return a(req,title, {start:start},nav_copy_fields);
+            return a(req,title, {start},nav_copy_fields);
         else
             return title;
     }
@@ -139,9 +143,8 @@ function mem_print_table(req,view,results, fields) {
     if (q.dir=='desc')
         results=results.reverse()
     var buf=''
-    var start=q.start||0
     var shown_fields=_.filter(fields,(value, i)=>!view.show_cols||_.includes(view.show_cols,i))
-    for (var i = start; i < start + max_rows; i++) {
+    for (var i = req.start; i < req.start + max_rows; i++) {
         if (i >= results.length)
             return make_result(req,buf,shown_fields,false,print_last_line(fields.length,i==0))
         buf+=print_row(req,results[i],i+1,shown_fields,view.first_col)
@@ -150,12 +153,11 @@ function mem_print_table(req,view,results, fields) {
 }
 function result_print_table(req,view,results, fields) {
     var shown_fields=fields
-    var start=req.query.start||0
     var buf=''
     for (var i = 0; i < max_rows; i++) {
         if (i >= results.length)
             return make_result(req,buf,fields,false,print_last_line(fields.length,i==0))
-        buf+=print_row(req,results[i],i+1+start,shown_fields,view.first_col)
+        buf+=print_row(req,results[i],i+1+req.start,shown_fields,view.first_col)
     }
     return make_result(req,buf,fields,true)
 }
@@ -215,7 +217,7 @@ function  calc_query_decoration(req){
     var ans='';
     if (q.sort)
         ans+=' order by '+q.sort+' '+q.dir+' ';
-    ans+=' limit '+(q.start||0)+', '+max_rows;
+    ans+=' limit '+req.start+', '+max_rows;
     return ans
 }
 
@@ -299,10 +301,13 @@ app.get('/query',(req,res)=>{
         database:q.database,
         querytext:q.query,
         navbar:databases_link(req)+(q.database?' / ' + decorate_database_name(req,q.database):'')+' / query',
-        printer:result_print_table
     }
-    if (q.query.startsWith('select'))
+    if (q.query.startsWith('select')){
         view.query_decoration=calc_query_decoration(req)
+        view.printer=result_print_table
+    }else
+        view.printer=mem_print_table
+
     query_and_send(req,res,view,null,null)
 })
 const port = process.env.PORT||80
